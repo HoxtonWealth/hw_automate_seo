@@ -1,0 +1,16 @@
+{
+  "name": "hoxton-seo-platform",
+  "version": "1.0.0",
+  "description": "SEO tracking platform for Hoxton Wealth",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
