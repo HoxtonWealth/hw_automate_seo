@@ -3,15 +3,7 @@ import { verifyApiKey } from '../../lib/auth.js';
 import { success, error } from '../../lib/response.js';
 import { UnauthorizedError, ValidationError, ExternalApiError, mapSupabaseError } from '../../lib/errors.js';
 import { validateRequired, validateType, validateMethod } from '../../lib/validate.js';
-
-const COUNTRY_TO_LOCATION = {
-  'UK': 2826,
-  'US': 2840,
-  'UAE': 2784,
-  'AU': 2036,
-  'SG': 2702,
-  'HK': 2344
-};
+import { getSerpResults, COUNTRY_TO_LOCATION } from '../../lib/dataforseo.js';
 
 const HOXTON_DOMAIN = 'hoxtonwealth.com';
 
@@ -79,19 +71,12 @@ export default async function handler(req, res) {
 
     for (const keyword of keywords) {
       const locationCode = COUNTRY_TO_LOCATION[keyword.country] || 2826;
-      
-      const serpData = await fetchSERP(keyword.keyword_text, locationCode);
-      
-      if (serpData.error) {
-        results.push({
-          keyword: keyword.keyword_text,
-          error: serpData.error
-        });
-        continue;
-      }
 
-      // Process top 100 results
-      for (const item of serpData.items || []) {
+      try {
+        const items = await getSerpResults(keyword.keyword_text, locationCode);
+
+        // Process top 100 results
+        for (const item of items) {
         const domain = extractDomain(item.url);
         const isHoxton = domain.includes(HOXTON_DOMAIN);
 
@@ -117,14 +102,20 @@ export default async function handler(req, res) {
         }
       }
 
-      results.push({
-        keyword: keyword.keyword_text,
-        country: keyword.country,
-        results_count: (serpData.items || []).length,
-        hoxton_position: serpData.items?.find(i => 
-          extractDomain(i.url).includes(HOXTON_DOMAIN)
-        )?.rank_absolute || null
-      });
+        results.push({
+          keyword: keyword.keyword_text,
+          country: keyword.country,
+          results_count: items.length,
+          hoxton_position: items.find(i =>
+            extractDomain(i.url).includes(HOXTON_DOMAIN)
+          )?.rank_absolute || null
+        });
+      } catch (err) {
+        results.push({
+          keyword: keyword.keyword_text,
+          error: err.message
+        });
+      }
     }
 
     // Batch insert SERP records
@@ -157,64 +148,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     return error(res, err);
-  }
-}
-
-/**
- * Fetch SERP data from DataForSEO
- */
-async function fetchSERP(keyword, locationCode) {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
-
-  if (!login || !password) {
-    throw new ValidationError('DataForSEO credentials not configured');
-  }
-
-  const auth = Buffer.from(`${login}:${password}`).toString('base64');
-
-  const payload = [{
-    keyword,
-    location_code: locationCode,
-    language_code: 'en',
-    depth: 100  // Top 100 results
-  }];
-
-  try {
-    const response = await fetch(
-      'https://api.dataforseo.com/v3/serp/google/organic/live/regular',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.status_code !== 20000) {
-      return { error: data.status_message || 'SERP API request failed' };
-    }
-
-    const items = data.tasks?.[0]?.result?.[0]?.items || [];
-    
-    // Filter to only organic results
-    const organicResults = items
-      .filter(item => item.type === 'organic')
-      .map(item => ({
-        rank_absolute: item.rank_absolute,
-        url: item.url,
-        domain: item.domain,
-        title: item.title
-      }));
-
-    return { items: organicResults };
-
-  } catch (err) {
-    return { error: err.message };
   }
 }
 

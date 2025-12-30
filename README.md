@@ -170,6 +170,25 @@ hoxton-seo-platform/
 └── README.md
 ```
 
+## Skills & Agents (For Claude Code)
+
+This project includes configuration files for Claude Code:
+
+### Skills (How-to guides)
+- `vercel-api.md` - Patterns for creating Vercel endpoints
+- `supabase.md` - Database operation patterns
+- `error-handling.md` - Standardized error responses
+- `dataforseo-specialist.md` - SEO data fetching guide
+
+### Agents (Task specialists)
+- `orchestrator.md` - Coordinates complex tasks
+- `api-builder.md` - Creates API endpoints
+- `code-reviewer.md` - Reviews code quality
+- `test-architect.md` - Writes tests
+- `debug-investigator.md` - Fixes bugs
+
+These files are in the project root and help Claude Code understand project patterns.
+
 ## Countries Supported
 
 - UK (United Kingdom)

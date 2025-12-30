@@ -4,7 +4,7 @@ import { success, error } from '../../lib/response.js';
 import { UnauthorizedError, ValidationError, mapSupabaseError } from '../../lib/errors.js';
 import { validateRequired, validateType, validateMethod, validateEnum } from '../../lib/validate.js';
 
-const VALID_COUNTRIES = ['UK', 'US', 'UAE', 'AU', 'CA', 'SG', 'HK'];
+const VALID_COUNTRIES = ['UK', 'US', 'UAE', 'AU', 'SG', 'HK'];
 
 /**
  * Batch Keywords Endpoint

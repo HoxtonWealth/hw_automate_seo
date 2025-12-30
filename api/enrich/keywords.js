@@ -3,15 +3,7 @@ import { verifyApiKey } from '../../lib/auth.js';
 import { success, error } from '../../lib/response.js';
 import { UnauthorizedError, ValidationError, ExternalApiError, mapSupabaseError } from '../../lib/errors.js';
 import { validateRequired, validateType, validateMethod, validateEnum } from '../../lib/validate.js';
-
-const COUNTRY_TO_LOCATION = {
-  'UK': 2826,    // United Kingdom
-  'US': 2840,    // United States
-  'UAE': 2784,   // United Arab Emirates
-  'AU': 2036,    // Australia
-  'SG': 2702,    // Singapore
-  'HK': 2344     // Hong Kong
-};
+import { getKeywordMetrics, COUNTRY_TO_LOCATION } from '../../lib/dataforseo.js';
 
 /**
  * Enrich Keywords Endpoint
@@ -86,15 +78,11 @@ export default async function handler(req, res) {
     
     for (const [country, kws] of Object.entries(byCountry)) {
       const locationCode = COUNTRY_TO_LOCATION[country] || 2826;
-      
-      const response = await fetchDataForSEO(kws.map(k => k.keyword_text), locationCode);
-      
-      if (response.error) {
-        throw new ExternalApiError('DataForSEO', response.error);
-      }
+
+      const response = await getKeywordMetrics(kws.map(k => k.keyword_text), locationCode);
 
       // Process results and store metrics
-      for (const result of response.results || []) {
+      for (const result of response || []) {
         const keyword = kws.find(k => 
           k.keyword_text.toLowerCase() === result.keyword.toLowerCase()
         );
@@ -134,52 +122,5 @@ export default async function handler(req, res) {
 
   } catch (err) {
     return error(res, err);
-  }
-}
-
-/**
- * Fetch keyword data from DataForSEO
- */
-async function fetchDataForSEO(keywords, locationCode) {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
-
-  if (!login || !password) {
-    throw new ValidationError('DataForSEO credentials not configured');
-  }
-
-  const auth = Buffer.from(`${login}:${password}`).toString('base64');
-
-  const payload = [{
-    keywords,
-    location_code: locationCode,
-    language_code: 'en'
-  }];
-
-  try {
-    const response = await fetch(
-      'https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.status_code !== 20000) {
-      return { error: data.status_message || 'API request failed' };
-    }
-
-    // Flatten results
-    const results = data.tasks?.[0]?.result || [];
-    return { results };
-
-  } catch (err) {
-    return { error: err.message };
   }
 }
